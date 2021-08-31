@@ -1,0 +1,18 @@
+<!DOCTYPE html>
+<html>
+	<head>
+		<meta charset="utf-8" />
+		<title>Survey-Data {{title}}</title>
+	</head>
+	<body>
+		<header>
+			<a href="/">Survey-Data</a>
+		</header>
+		<main>
+		{% block content %}{% endblock content %}
+		</main>
+		<footer>
+			footer
+		</footer>
+	</body>
+</html>
