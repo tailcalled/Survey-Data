@@ -1,9 +1,18 @@
+use std::collections::HashMap;
+use std::convert::Infallible;
+use rocket::{Request, request, State};
+use rocket::http::RawStr;
+use rocket::http::uri::fmt::{FromUriParam, Part};
+use rocket::outcome::Outcome::Success;
+use rocket::request::{FromParam, FromRequest};
 use rocket::serde::{Serialize, Serializer};
 use serde_json::{json, Value};
+use lazy_static::lazy_static;
 
 #[derive(Serialize)]
 #[serde(crate = "rocket::serde")]
 pub struct Test {
+    pub id: String,
     pub name: String,
     pub elements: Vec<Question>,
     pub feedback: Vec<FeedbackItem>,
@@ -72,6 +81,7 @@ pub fn make_tipi_test() -> Test {
         "Agree strongly".into()
     ];
     let mut test = Test {
+        id: "tipi".into(),
         name: "Ten Item Personality Inventory".into(),
         elements: vec![],
         feedback: vec![],
@@ -120,4 +130,31 @@ pub fn make_tipi_test() -> Test {
               "Openness is characterized by fantasy, aesthetic interests, depth of feelings, \
               adventurousness, intellectual interests, and liberalism.");
     test
+}
+
+pub struct Tests(HashMap<String, Test>);
+
+pub fn make_tests() -> Tests {
+    let mut tests = HashMap::new();
+    tests.insert("tipi".into(), make_tipi_test());
+    Tests(tests)
+}
+
+lazy_static! {
+    static ref TESTS: Tests = make_tests();
+}
+
+impl<'a> FromParam<'a> for &Test {
+    type Error = Infallible;
+
+    fn from_param(param: &'a str) -> Result<Self, Infallible> {
+        Ok(TESTS.0.get(param).unwrap())
+    }
+}
+
+impl<'r, P: Part> FromUriParam<P, &'r Test> for &Test {
+    type Target = &'r str;
+    fn from_uri_param(param: &'r Test) -> &'r str {
+        &param.id
+    }
 }

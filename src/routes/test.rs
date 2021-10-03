@@ -14,7 +14,7 @@ pub static TEST_TEMPLATE: &str = r#"
 {% extends "base" %}
 
 {% block content %}
-	<form action="/tipi/feedback" method="post">
+	<form action="/feedback/{{data.test.id}}" method="post">
 		{% for element in data.test.elements %}
 		    {% if element.content.McQuestion %}
 		        {% set content = element.content.McQuestion %}
@@ -80,14 +80,11 @@ pub struct Response {
     questions: HashMap<String, String>
 }
 
-#[get("/tipi/test")]
-pub async fn tipi(cookies: &CookieJar<'_>) -> Option<Template> {
+#[get("/test/<test>")]
+pub async fn test(test: &Test, cookies: &CookieJar<'_>) -> Option<Template> {
     if cookies.get("responseId").is_none() {
         cookies.add(Cookie::new("responseId", Uuid::new_v4().to_string()));
     }
-    test(&make_tipi_test()).await
-}
-async fn test(test: &Test) -> Option<Template> {
     Some(Template::render("test.html", &TemplateContext {
         title: &test.name,
         style_hash: &style_hash().await?,
@@ -95,12 +92,11 @@ async fn test(test: &Test) -> Option<Template> {
     }))
 }
 
-#[post("/tipi/feedback", data="<response>")]
-pub async fn post_feedback(cookies: &CookieJar<'_>, response: Form<Response>, pool: &State<PgPool>) -> Redirect {
-    let test = make_tipi_test();
+#[post("/feedback/<test>", data="<response>")]
+pub async fn post_feedback(test: &Test, cookies: &CookieJar<'_>, response: Form<Response>, pool: &State<PgPool>) -> Redirect {
     let response_id: Uuid = cookies.get("responseId").unwrap().value().parse().unwrap();
     let mut resp_map = HashMap::new();
-    for question in test.elements {
+    for question in &test.elements {
         let it = question.content.convert(&response.questions[&question.id]);
         resp_map.insert(question.id.clone(), it);
     }
@@ -111,11 +107,10 @@ pub async fn post_feedback(cookies: &CookieJar<'_>, response: Form<Response>, po
 		response_id, Option::<Uuid>::None, serde_json::to_value(&resp_map).unwrap()
 	).execute(&mut conn).await.unwrap();
     cookies.remove(Cookie::named("responseId"));
-    Redirect::to(uri!(get_feedback(id=response_id.to_string())))
+    Redirect::to(uri!(get_feedback(test=test, id=response_id.to_string())))
 }
-#[get("/tipi/feedback/<id>")]
-pub async fn get_feedback(pool: &State<PgPool>, id: &str) -> Option<Template> {
-    let test = make_tipi_test();
+#[get("/feedback/<test>/<id>")]
+pub async fn get_feedback(test: &Test, pool: &State<PgPool>, id: &str) -> Option<Template> {
     let response_id: Uuid = id.parse().unwrap();
     let mut conn = pool.acquire().await.unwrap();
     let res = sqlx::query!(
@@ -123,7 +118,7 @@ pub async fn get_feedback(pool: &State<PgPool>, id: &str) -> Option<Template> {
 		response_id
 	).fetch_one(&mut conn).await.unwrap();
     let mut feedback = vec![];
-    for part in test.feedback {
+    for part in &test.feedback {
         feedback.push(part.score(&res.content));
     }
     Some(Template::render("feedback.html", &TemplateContext {
