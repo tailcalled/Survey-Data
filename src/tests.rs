@@ -1,5 +1,5 @@
 use rocket::serde::Serialize;
-use serde_json::Value;
+use serde_json::{json, Value};
 
 #[derive(Serialize)]
 #[serde(crate = "rocket::serde")]
@@ -25,7 +25,7 @@ impl QuestionContent {
         match self {
             McQuestion { options, .. } => {
                 let n_opt: usize = resp.parse().unwrap();
-                options[n_opt].clone().into()
+                json!({"ord": n_opt, "nom": options[n_opt].clone()})
             }
         }
     }
