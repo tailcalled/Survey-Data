@@ -1,0 +1,21 @@
+.bar-container {
+    display: flex;
+    overflow: hidden;
+    border: 1px solid grey;
+	box-shadow: 0 0 4px -2px black;
+	border-radius: 10px;
+
+    .bar-percent {
+        margin: 5px;
+    }
+    .bar {
+        display: flex;
+        width: 100%;
+        .bar-fill {
+            background-color: #10e010;
+        }
+        .bar-empty {
+            background-color: grey;
+        }
+    }
+}

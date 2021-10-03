@@ -18,10 +18,10 @@ pub static TEMPLATE: &str = r#"
 "#;
 
 #[get("/")]
-pub async fn index() -> Option<Template> {
-    Some(Template::render("index.html", &TemplateContext {
+pub async fn index() -> Template {
+    Template::render("index.html", &TemplateContext {
         title: "Index",
-        style_hash: &style_hash().await?,
+        style_hash: &style_hash().await,
         data: (),
-    }))
+    })
 }

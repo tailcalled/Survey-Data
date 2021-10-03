@@ -5,6 +5,7 @@ pub mod database;
 #[macro_use] extern crate rocket;
 
 use rocket_dyn_templates::Template;
+use sass_rocket_fairing::SassFairing;
 use sqlx::postgres::{PgPool, PgPoolOptions};
 use crate::tests::make_tests;
 
@@ -26,6 +27,7 @@ async fn rocket() -> _ {
 						routes::statics::style])
                     .manage::<PgPool>(pool)
                     .manage(make_tests())
+					.attach(SassFairing)
                     .attach(Template::custom( |engines| {
                         routes::customize(&mut engines.tera);
                     }))

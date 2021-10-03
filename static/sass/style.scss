@@ -1,0 +1,10 @@
+@import 'structure';
+@import 'test';
+@import 'feedback';
+
+pre {
+	background: lightgrey;
+	border: 1px solid black;
+	padding: 5px;
+	margin-left: 10px;
+}

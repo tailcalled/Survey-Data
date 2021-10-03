@@ -1,3 +1,4 @@
+use std::env::current_dir;
 use rocket::serde::Serialize;
 use rocket_dyn_templates::tera::Tera;
 use tokio::fs::metadata;
@@ -21,8 +22,8 @@ pub struct DebugContext<'r> {
     body: &'r str,
 }
 
-pub async fn style_hash() -> Option<String> {
-    Some(format!("{:?}", metadata("static/style.css").await.ok()?.modified().ok()?))
+pub async fn style_hash() -> String {
+    format!("{:?}", metadata("./static/css/style.css").await.ok().unwrap().modified().ok().unwrap())
 }
 
 static DEBUG_TEMPLATE: &str = r#"

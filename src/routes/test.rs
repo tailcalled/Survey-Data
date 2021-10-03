@@ -26,7 +26,7 @@ pub static TEST_TEMPLATE: &str = r#"
 		{% for element in data.test.pages[data.page].elements %}
 		    {% if element.content.McQuestion %}
 		        {% set content = element.content.McQuestion %}
-                <div class="question">
+                <div class="mc-question">
                     <div class="question-text">{{ content.text }}</div>
                     <div class="question-options">
                         {% for opt in content.options %}
@@ -37,6 +37,14 @@ pub static TEST_TEMPLATE: &str = r#"
                         {% endfor %}
                     </div>
                 </div>
+            {% elif element.content.CheckboxQuestion %}
+		        {% set content = element.content.CheckboxQuestion %}
+		        <div class="cb-question">
+                    <label for="{{ element.id }}">
+                        <input type="checkbox" id="{{ element.id }}" name="questions.{{ element.id }}">
+                        {{ content.text }}
+		            </label>
+		        </div>
             {% endif %}
 		{% endfor %}
 		{% if data.page + 1 < N_PAGES %}
@@ -97,8 +105,8 @@ fn get_resp_map(test: &Test, response: &Response) -> HashMap<String, Value> {
     let mut resp_map = HashMap::new();
     for page in &test.pages {
         for question in &page.elements {
-            if let Some(value) = &response.questions.get(&question.id) {
-                resp_map.insert(question.id.clone(), question.content.convert(value));
+            if let Some(value) = question.convert(&response.questions) {
+                resp_map.insert(question.id.clone(), value);
             }
         }
     }
@@ -109,35 +117,37 @@ fn get_resp_map(test: &Test, response: &Response) -> HashMap<String, Value> {
 pub async fn post_test(test: &Test, page: usize, cookies: &CookieJar<'_>, response: Form<Response>, pool: &State<PgPool>) -> Redirect {
     let resp_id_cookie_name = format!("responseId[{}]", test.id);
     let response_id = cookies.get(&resp_id_cookie_name).unwrap().value().parse().unwrap();
+    println!("{:?}", &response.questions);
     let resp_map = get_resp_map(test, &response);
     database::update_response(response_id, resp_map, &mut pool.acquire().await.unwrap()).await;
     Redirect::to(uri!(test(test=test, page=page)))
 }
 
 #[get("/test/<test>/<page>")]
-pub async fn test(test: &Test, page: usize, cookies: &CookieJar<'_>) -> Option<Template> {
+pub async fn test(test: &Test, page: usize, cookies: &CookieJar<'_>) -> Template {
     let resp_id_cookie_name = format!("responseId[{}]", test.id);
     if cookies.get(&resp_id_cookie_name).is_none() {
         cookies.add(Cookie::new(resp_id_cookie_name, Uuid::new_v4().to_string()));
     }
-    Some(Template::render("test.html", &TemplateContext {
+    Template::render("test.html", &TemplateContext {
         title: &test.name,
-        style_hash: &style_hash().await?,
+        style_hash: &style_hash().await,
         data: TestContext { test: test, page: page },
-    }))
+    })
 }
 
 #[post("/feedback/<test>", data="<response>")]
 pub async fn post_feedback(test: &Test, cookies: &CookieJar<'_>, response: Form<Response>, pool: &State<PgPool>) -> Redirect {
     let resp_id_cookie_name = format!("responseId[{}]", test.id);
     let response_id: Uuid = cookies.get(&resp_id_cookie_name).unwrap().value().parse().unwrap();
+    println!("{:?}", &response.questions);
     let resp_map = get_resp_map(test, &response);
     database::update_response(response_id, resp_map, &mut pool.acquire().await.unwrap()).await;
     cookies.remove(Cookie::named(resp_id_cookie_name));
     Redirect::to(uri!(get_feedback(test=test, id=response_id.to_string())))
 }
 #[get("/feedback/<test>/<id>")]
-pub async fn get_feedback(test: &Test, pool: &State<PgPool>, id: &str) -> Option<Template> {
+pub async fn get_feedback(test: &Test, pool: &State<PgPool>, id: &str) -> Template {
     let response_id: Uuid = id.parse().unwrap();
     let mut conn = pool.acquire().await.unwrap();
     let res = sqlx::query!(
@@ -148,11 +158,11 @@ pub async fn get_feedback(test: &Test, pool: &State<PgPool>, id: &str) -> Option
     for part in &test.feedback {
         feedback.push(part.score(&res.content));
     }
-    Some(Template::render("feedback.html", &TemplateContext {
+    Template::render("feedback.html", &TemplateContext {
         title: "Feedback",
-        style_hash: &style_hash().await?,
+        style_hash: &style_hash().await,
         data: FeedbackContext {
             feedback: &feedback
         }
-    }))
+    })
 }

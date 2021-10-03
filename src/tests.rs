@@ -30,15 +30,27 @@ pub struct Question {
 #[derive(Serialize)]
 #[serde(crate = "rocket::serde")]
 pub enum QuestionContent {
-    McQuestion { text: String, options: Vec<String> }
+    McQuestion { text: String, options: Vec<String> },
+    CheckboxQuestion { text: String },
 }
-impl QuestionContent {
-    pub fn convert(&self, resp: &str) -> Value {
+impl Question {
+    pub fn convert(&self, resp: &HashMap<String, String>) -> Option<Value> {
         use QuestionContent::*;
-        match self {
+        match &self.content {
             McQuestion { options, .. } => {
-                let n_opt: usize = resp.parse().unwrap();
-                json!({"ord": n_opt, "nom": options[n_opt].clone()})
+                if let Some(answer) = resp.get(&self.id) {
+                    let n_opt: usize = answer.parse().unwrap();
+                    Some(json!({"ord": n_opt, "nom": options[n_opt].clone()}))
+                }
+                else { None }
+            }
+            CheckboxQuestion { text } => {
+                if let Some(answer) = resp.get(&self.id) {
+                    Some(json!({"text": text, "checked": answer == "on"}))
+                }
+                else {
+                    Some(json!({"declined": text, "checked": false}))
+                }
             }
         }
     }
@@ -106,7 +118,38 @@ pub fn make_tipi_test() -> Test {
     let mut test = Test {
         id: "tipi".into(),
         name: "Ten Item Personality Inventory".into(),
-        pages: vec![TestPage { elements: test_items }],
+        pages: vec![TestPage { elements: test_items },
+            TestPage {
+                elements: vec![
+                    Question {
+                        id: "accurate".into(),
+                        content: CheckboxQuestion {
+                            text: "My response is accurate to the best of my ability".into(),
+                        }
+                    },
+                    Question {
+                        id: "consent".into(),
+                        content: CheckboxQuestion {
+                            text: "My response may anonymously be entered into public datasets to \
+                                   support future research".into(),
+                        }
+                    },
+                    Question {
+                        id: "repeat".into(),
+                        content: CheckboxQuestion {
+                            text: "I remember having taken this test before on this website".into(),
+                        }
+                    },
+                    Question {
+                        id: "additional".into(),
+                        content: CheckboxQuestion {
+                            text: "I would be open to answering a few extra demographic questions \
+                                   to contribute to research (you will be presented with another \
+                                   page on the test if you check this)".into(),
+                        }
+                    },
+                ]
+            }],
         feedback: vec![],
     };
     let mut add_score = |label: &str, pos: &'static str, neg: &'static str, descr: &str| {
