@@ -34,7 +34,8 @@ static DEBUG_TEMPLATE: &str = r#"
 "#;
 
 pub fn customize(tera: &mut Tera) {
-    tera.add_raw_template("test.html", test::TEMPLATE).unwrap();
+    tera.add_raw_template("test.html", test::TEST_TEMPLATE).unwrap();
+    tera.add_raw_template("feedback.html", test::FEEDBACK_TEMPLATE).unwrap();
     tera.add_raw_template("index.html", index::TEMPLATE).unwrap();
     tera.add_raw_template("debug.html", DEBUG_TEMPLATE).unwrap();
 }

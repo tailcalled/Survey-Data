@@ -1,11 +1,12 @@
-use rocket::serde::Serialize;
+use rocket::serde::{Serialize, Serializer};
 use serde_json::{json, Value};
 
 #[derive(Serialize)]
 #[serde(crate = "rocket::serde")]
 pub struct Test {
     pub name: String,
-    pub elements: Vec<Question>
+    pub elements: Vec<Question>,
+    pub feedback: Vec<FeedbackItem>,
 }
 
 #[derive(Serialize)]
@@ -30,9 +31,37 @@ impl QuestionContent {
         }
     }
 }
+#[derive(Serialize)]
+#[serde(crate = "rocket::serde")]
+pub enum FeedbackItem {
+    Title { text: String },
+    Paragraph { text: String },
+    Bar { score: f64, min: f64, max: f64 },
+    Score { eval: Scorer },
+}
+pub struct Scorer(Box<dyn Send + Sync + Fn(&Value) -> FeedbackItem>);
+
+impl Serialize for Scorer {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error> where S: Serializer {
+        "N/A".serialize(serializer)
+    }
+}
+
+impl FeedbackItem {
+    pub(crate) fn score(&self, value: &Value) -> FeedbackItem {
+        use FeedbackItem::*;
+        match self {
+            Score { eval: Scorer(eval) } => eval(value),
+            Title { text } => Title { text: text.clone() },
+            Paragraph { text } => Paragraph { text: text.clone() },
+            Bar { score, min, max } => Bar { score: *score, min: *min, max: *max },
+        }
+    }
+}
 
 pub fn make_tipi_test() -> Test {
     use QuestionContent::*;
+    use FeedbackItem::*;
     let likert7 = vec![
         "Disagree strongly".into(),
         "Disagree moderately".into(),
@@ -42,19 +71,53 @@ pub fn make_tipi_test() -> Test {
         "Agree moderately".into(),
         "Agree strongly".into()
     ];
-    Test {
+    let mut test = Test {
         name: "Ten Item Personality Inventory".into(),
-        elements: vec![
-            Question { id: "ep".into(), content: McQuestion { text: "Extraverted, enthusiastic".into(), options: likert7.clone() } },
-            Question { id: "am".into(), content: McQuestion { text: "Critical, quarrelsome".into(), options: likert7.clone() } },
-            Question { id: "cp".into(), content: McQuestion { text: "Dependable, self-disciplined".into(), options: likert7.clone() } },
-            Question { id: "np".into(), content: McQuestion { text: "Anxious, easily upset".into(), options: likert7.clone() } },
-            Question { id: "op".into(), content: McQuestion { text: "Open to new experiences, complex".into(), options: likert7.clone() } },
-            Question { id: "em".into(), content: McQuestion { text: "Reserved, quiet".into(), options: likert7.clone() } },
-            Question { id: "ap".into(), content: McQuestion { text: "Sympathetic, warm".into(), options: likert7.clone() } },
-            Question { id: "cm".into(), content: McQuestion { text: "Disorganized, careless".into(), options: likert7.clone() } },
-            Question { id: "nm".into(), content: McQuestion { text: "Calm, emotionally stable".into(), options: likert7.clone() } },
-            Question { id: "om".into(), content: McQuestion { text: "Conventional, uncreative".into(), options: likert7.clone() } },
-        ]
-    }
+        elements: vec![],
+        feedback: vec![],
+    };
+    let mut add_item = |id: &str, label: &str| {
+        test.elements.push(Question {
+            id: id.into(),
+            content: McQuestion {
+                text: label.into(),
+                options: likert7.clone(),
+            }
+        })
+    };
+    add_item("ep", "Extraverted, enthusiastic");
+    add_item("am", "Critical, quarrelsome");
+    add_item("cp", "Dependable, self-disciplined");
+    add_item("np", "Anxious, easily upset");
+    add_item("op", "Open to new experiences, complex");
+    add_item("em", "Reserved, quiet");
+    add_item("ap", "Sympathetic, warm");
+    add_item("cm", "Disorganized, careless");
+    add_item("nm", "Calm, emotionally stable");
+    add_item("om", "Conventional, uncreative");
+    let mut add_score = |label: &str, pos: &'static str, neg: &'static str, descr: &str| {
+        test.feedback.push(Title { text: label.into() });
+        test.feedback.push(Paragraph { text: descr.into() });
+        test.feedback.push(Score { eval: Scorer(Box::new(move |resp: &Value| {
+            let num_pos: f64 = resp[pos]["ord"].as_f64().unwrap();
+            let num_neg: f64 = resp[neg]["ord"].as_f64().unwrap();
+            Bar { score: 1.0 + (num_pos + (6.0 - num_neg)) / 2.0, min: 1.0, max: 7.0 }
+        }))})
+    };
+    add_score("Extraversion", "ep", "em",
+              "Extraversion is characterized by warmth, gregariousness, assertiveness,\
+              activity, excitement seeking, and positive emotions.");
+    add_score("Agreeableness", "ap", "am",
+              "Agreeableness is characterized by trust, straightforwardness, altruism,\
+              compliance, modesty and tender-mindedness.");
+    add_score("Conscientiousness", "cp", "cm",
+              "Conscientiousness is characterized by competence, orderliness, dutifulness,\
+              achievement-striving, self-discipline and deliberation.");
+    add_score("Neuroticism", "np", "nm",
+              "Neuroticism is characterized by anxiety, anger, depression,\
+              self-consciousness, impulsiveness and vulnerability.");
+    add_score("Openness", "np", "nm",
+              "Openness is characterized by fantasy, aesthetic interests, depth of feelings,\
+              adventurousness, intellectual interests, and liberalism.");
+    test
 }

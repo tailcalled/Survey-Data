@@ -10,7 +10,7 @@ use uuid::Uuid;
 use crate::tests::*;
 use super::{TemplateContext, DebugContext, style_hash};
 
-pub static TEMPLATE: &str = r#"
+pub static TEST_TEMPLATE: &str = r#"
 {% extends "base" %}
 
 {% block content %}
@@ -36,11 +36,42 @@ pub static TEMPLATE: &str = r#"
 {% endblock content %}
 "#;
 
+pub static FEEDBACK_TEMPLATE: &str = r#"
+{% extends "base" %}
+
+{% block content %}
+    {% for element in data.feedback %}
+        {% if element.Title %}
+            {% set content = element.Title %}
+            <h2>{{content.text}}</h2>
+        {% elif element.Paragraph %}
+            {% set content = element.Paragraph %}
+            <p>{{content.text}}</p>
+        {% elif element.Bar %}
+            {% set content = element.Bar %}
+            {% set percentage = 100.0 * (content.score - content.min) / (content.max - content.min) %}
+            <div class="bar-container">
+                <div class="bar-percent">{{percentage | round}}%</div>
+                <div class="bar">
+                    <div class="bar-fill" style="width: {{percentage}}%"></div>
+                    <div class="bar-empty" style="width: {{100-percentage}}%"></div>
+                </div>
+            </div>
+        {% endif %}
+    {% endfor %}
+{% endblock content %}
+"#;
 
 #[derive(Serialize)]
 #[serde(crate = "rocket::serde")]
 struct TestContext<'r> {
     test: &'r Test,
+}
+
+#[derive(Serialize)]
+#[serde(crate = "rocket::serde")]
+struct FeedbackContext<'r> {
+    feedback: &'r Vec<FeedbackItem>,
 }
 
 #[derive(FromForm)]
@@ -84,15 +115,27 @@ pub async fn post_feedback(cookies: &CookieJar<'_>, response: Form<Response>, po
 }
 #[get("/tipi/feedback/<id>")]
 pub async fn get_feedback(pool: &State<PgPool>, id: &str) -> Option<Template> {
+    let test = make_tipi_test();
     let response_id: Uuid = id.parse().unwrap();
     let mut conn = pool.acquire().await.unwrap();
     let res = sqlx::query!(
 		"SELECT response_id, user_id, submit_time, content FROM responses WHERE response_id = $1",
 		response_id
-	).fetch_all(&mut conn).await.unwrap();
-    Some(Template::render("debug.html", &TemplateContext {
+	).fetch_one(&mut conn).await.unwrap();
+    let mut feedback = vec![];
+    for part in test.feedback {
+        feedback.push(part.score(&res.content));
+    }
+    Some(Template::render("feedback.html", &TemplateContext {
         title: "Feedback",
         style_hash: &style_hash().await?,
-        data: DebugContext { body: &format!("{:#?}", res) }
+        data: FeedbackContext {
+            feedback: &feedback
+        }
     }))
+//    Some(Template::render("debug.html", &TemplateContext {
+//        title: "Feedback",
+//        style_hash: &style_hash().await?,
+//        data: DebugContext { body: &format!("{:#?}", res) }
+//    }))
 }

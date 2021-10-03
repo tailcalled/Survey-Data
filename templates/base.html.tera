@@ -7,7 +7,7 @@
 	</head>
 	<body>
 		<header>
-			<a href="/">Survey-Data</a> {{ title }}
+			<a href="/">Survey-Data</a> <h1>{{ title }}</h1>
 		</header>
 		<main>
 		{% block content %}{% endblock content %}
