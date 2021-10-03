@@ -105,19 +105,19 @@ pub fn make_tipi_test() -> Test {
         }))})
     };
     add_score("Extraversion", "ep", "em",
-              "Extraversion is characterized by warmth, gregariousness, assertiveness,\
+              "Extraversion is characterized by warmth, gregariousness, assertiveness, \
               activity, excitement seeking, and positive emotions.");
     add_score("Agreeableness", "ap", "am",
-              "Agreeableness is characterized by trust, straightforwardness, altruism,\
+              "Agreeableness is characterized by trust, straightforwardness, altruism, \
               compliance, modesty and tender-mindedness.");
     add_score("Conscientiousness", "cp", "cm",
-              "Conscientiousness is characterized by competence, orderliness, dutifulness,\
+              "Conscientiousness is characterized by competence, orderliness, dutifulness, \
               achievement-striving, self-discipline and deliberation.");
     add_score("Neuroticism", "np", "nm",
-              "Neuroticism is characterized by anxiety, anger, depression,\
+              "Neuroticism is characterized by anxiety, anger, depression, \
               self-consciousness, impulsiveness and vulnerability.");
     add_score("Openness", "np", "nm",
-              "Openness is characterized by fantasy, aesthetic interests, depth of feelings,\
+              "Openness is characterized by fantasy, aesthetic interests, depth of feelings, \
               adventurousness, intellectual interests, and liberalism.");
     test
 }
