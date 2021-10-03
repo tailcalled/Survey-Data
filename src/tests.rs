@@ -1,10 +1,7 @@
 use std::collections::HashMap;
 use std::convert::Infallible;
-use rocket::{Request, request, State};
-use rocket::http::RawStr;
 use rocket::http::uri::fmt::{FromUriParam, Part};
-use rocket::outcome::Outcome::Success;
-use rocket::request::{FromParam, FromRequest};
+use rocket::request::{FromParam};
 use rocket::serde::{Serialize, Serializer};
 use serde_json::{json, Value};
 use lazy_static::lazy_static;
@@ -14,8 +11,14 @@ use lazy_static::lazy_static;
 pub struct Test {
     pub id: String,
     pub name: String,
-    pub elements: Vec<Question>,
+    pub pages: Vec<TestPage>,
     pub feedback: Vec<FeedbackItem>,
+}
+
+#[derive(Serialize)]
+#[serde(crate = "rocket::serde")]
+pub struct TestPage {
+    pub elements: Vec<Question>,
 }
 
 #[derive(Serialize)]
@@ -80,14 +83,9 @@ pub fn make_tipi_test() -> Test {
         "Agree moderately".into(),
         "Agree strongly".into()
     ];
-    let mut test = Test {
-        id: "tipi".into(),
-        name: "Ten Item Personality Inventory".into(),
-        elements: vec![],
-        feedback: vec![],
-    };
+    let mut test_items = vec![];
     let mut add_item = |id: &str, label: &str| {
-        test.elements.push(Question {
+        test_items.push(Question {
             id: id.into(),
             content: McQuestion {
                 text: label.into(),
@@ -105,6 +103,12 @@ pub fn make_tipi_test() -> Test {
     add_item("cm", "Disorganized, careless");
     add_item("nm", "Calm, emotionally stable");
     add_item("om", "Conventional, uncreative");
+    let mut test = Test {
+        id: "tipi".into(),
+        name: "Ten Item Personality Inventory".into(),
+        pages: vec![TestPage { elements: test_items }],
+        feedback: vec![],
+    };
     let mut add_score = |label: &str, pos: &'static str, neg: &'static str, descr: &str| {
         test.feedback.push(Title { text: label.into() });
         test.feedback.push(Paragraph { text: descr.into() });

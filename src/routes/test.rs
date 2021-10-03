@@ -6,16 +6,24 @@ use std::collections::HashMap;
 use rocket::State;
 use rocket::http::{CookieJar, Cookie};
 use rocket::response::Redirect;
+use serde_json::Value;
 use uuid::Uuid;
 use crate::tests::*;
-use super::{TemplateContext, DebugContext, style_hash};
+use crate::database;
+use super::{TemplateContext, style_hash};
 
 pub static TEST_TEMPLATE: &str = r#"
 {% extends "base" %}
 
 {% block content %}
-	<form action="/feedback/{{data.test.id}}" method="post">
-		{% for element in data.test.elements %}
+    {% set N_PAGES = data.test.pages | length %}
+	<form action=
+	    {% if data.page + 1 < N_PAGES %}
+	        "/test/{{data.test.id}}/{{data.page+1}}"
+	    {% else %}
+	        "/feedback/{{data.test.id}}"
+	    {% endif %} method="post">
+		{% for element in data.test.pages[data.page].elements %}
 		    {% if element.content.McQuestion %}
 		        {% set content = element.content.McQuestion %}
                 <div class="question">
@@ -31,7 +39,11 @@ pub static TEST_TEMPLATE: &str = r#"
                 </div>
             {% endif %}
 		{% endfor %}
-		<input class="submit" type="submit" value="Get Results!">
+		{% if data.page + 1 < N_PAGES %}
+		    <input class="submit" type="submit" value="Next Page">
+		{% else %}
+		    <input class="submit" type="submit" value="Get Results!">
+		{% endif %}
 	</form>
 {% endblock content %}
 "#;
@@ -66,6 +78,7 @@ pub static FEEDBACK_TEMPLATE: &str = r#"
 #[serde(crate = "rocket::serde")]
 struct TestContext<'r> {
     test: &'r Test,
+    page: usize,
 }
 
 #[derive(Serialize)]
@@ -80,33 +93,47 @@ pub struct Response {
     questions: HashMap<String, String>
 }
 
-#[get("/test/<test>")]
-pub async fn test(test: &Test, cookies: &CookieJar<'_>) -> Option<Template> {
-    if cookies.get("responseId").is_none() {
-        cookies.add(Cookie::new("responseId", Uuid::new_v4().to_string()));
+fn get_resp_map(test: &Test, response: &Response) -> HashMap<String, Value> {
+    let mut resp_map = HashMap::new();
+    for page in &test.pages {
+        for question in &page.elements {
+            if let Some(value) = &response.questions.get(&question.id) {
+                resp_map.insert(question.id.clone(), question.content.convert(value));
+            }
+        }
+    }
+    resp_map
+}
+
+#[post("/test/<test>/<page>", data="<response>")]
+pub async fn post_test(test: &Test, page: usize, cookies: &CookieJar<'_>, response: Form<Response>, pool: &State<PgPool>) -> Redirect {
+    let resp_id_cookie_name = format!("responseId[{}]", test.id);
+    let response_id = cookies.get(&resp_id_cookie_name).unwrap().value().parse().unwrap();
+    let resp_map = get_resp_map(test, &response);
+    database::update_response(response_id, resp_map, &mut pool.acquire().await.unwrap()).await;
+    Redirect::to(uri!(test(test=test, page=page)))
+}
+
+#[get("/test/<test>/<page>")]
+pub async fn test(test: &Test, page: usize, cookies: &CookieJar<'_>) -> Option<Template> {
+    let resp_id_cookie_name = format!("responseId[{}]", test.id);
+    if cookies.get(&resp_id_cookie_name).is_none() {
+        cookies.add(Cookie::new(resp_id_cookie_name, Uuid::new_v4().to_string()));
     }
     Some(Template::render("test.html", &TemplateContext {
         title: &test.name,
         style_hash: &style_hash().await?,
-        data: TestContext { test: test },
+        data: TestContext { test: test, page: page },
     }))
 }
 
 #[post("/feedback/<test>", data="<response>")]
 pub async fn post_feedback(test: &Test, cookies: &CookieJar<'_>, response: Form<Response>, pool: &State<PgPool>) -> Redirect {
-    let response_id: Uuid = cookies.get("responseId").unwrap().value().parse().unwrap();
-    let mut resp_map = HashMap::new();
-    for question in &test.elements {
-        let it = question.content.convert(&response.questions[&question.id]);
-        resp_map.insert(question.id.clone(), it);
-    }
-    let mut conn = pool.acquire().await.unwrap();
-    sqlx::query!(
-		"INSERT INTO responses(response_id, user_id, submit_time, content)
-		               VALUES ($1, $2, NOW(), $3) ON CONFLICT DO NOTHING",
-		response_id, Option::<Uuid>::None, serde_json::to_value(&resp_map).unwrap()
-	).execute(&mut conn).await.unwrap();
-    cookies.remove(Cookie::named("responseId"));
+    let resp_id_cookie_name = format!("responseId[{}]", test.id);
+    let response_id: Uuid = cookies.get(&resp_id_cookie_name).unwrap().value().parse().unwrap();
+    let resp_map = get_resp_map(test, &response);
+    database::update_response(response_id, resp_map, &mut pool.acquire().await.unwrap()).await;
+    cookies.remove(Cookie::named(resp_id_cookie_name));
     Redirect::to(uri!(get_feedback(test=test, id=response_id.to_string())))
 }
 #[get("/feedback/<test>/<id>")]
@@ -128,9 +155,4 @@ pub async fn get_feedback(test: &Test, pool: &State<PgPool>, id: &str) -> Option
             feedback: &feedback
         }
     }))
-//    Some(Template::render("debug.html", &TemplateContext {
-//        title: "Feedback",
-//        style_hash: &style_hash().await?,
-//        data: DebugContext { body: &format!("{:#?}", res) }
-//    }))
 }

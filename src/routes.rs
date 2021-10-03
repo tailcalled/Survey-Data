@@ -5,6 +5,7 @@ use tokio::fs::metadata;
 pub mod index;
 pub mod statics;
 pub mod test;
+pub mod debug;
 
 #[derive(Serialize)]
 #[serde(crate = "rocket::serde")]

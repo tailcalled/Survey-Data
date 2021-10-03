@@ -1,9 +1,9 @@
 pub mod tests;
 pub mod routes;
+pub mod database;
 
 #[macro_use] extern crate rocket;
 
-use std::collections::HashMap;
 use rocket_dyn_templates::Template;
 use sqlx::postgres::{PgPool, PgPoolOptions};
 use crate::tests::make_tests;
@@ -18,9 +18,11 @@ async fn rocket() -> _ {
         .connect(database_url).await.unwrap();
     rocket::build().mount("/", routes![
 						routes::index::index,
+						routes::test::post_test,
 						routes::test::test,
 						routes::test::post_feedback,
 						routes::test::get_feedback,
+						routes::debug::all_responses,
 						routes::statics::style])
                     .manage::<PgPool>(pool)
                     .manage(make_tests())
