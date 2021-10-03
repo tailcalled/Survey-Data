@@ -1,23 +1,28 @@
+pub mod tests;
+pub mod routes;
+
 #[macro_use] extern crate rocket;
-use rocket::serde::Serialize;
-use rocket_dyn_templates::{Template};
-use rocket_dyn_templates::tera::Tera;
-
-#[derive(Serialize)]
-#[serde(crate = "rocket::serde")]
-struct TemplateContext<'r> {
-	title: &'r str
-}
-
-#[get("/")]
-fn index() -> Template {
-	Template::render("index", &TemplateContext{
-		title: "Index"
-	})
-}
+use rocket_dyn_templates::Template;
+use sqlx::postgres::{PgPool, PgPoolOptions};
 
 #[launch]
-fn rocket() -> _ {
-    rocket::build().mount("/", routes![index])
-                   .attach(Template::fairing())
+async fn rocket() -> _ {
+    // CREATE USER surveydata WITH PASSWORD 'surveydata' CREATEDB;
+    // CREATE DATABASE surveydata;
+    let database_url = "postgres://surveydata:surveydata@localhost/surveydata";
+    let pool = PgPoolOptions::new()
+        .max_connections(5)
+        .connect(database_url).await.unwrap();
+    rocket::build().mount("/", routes![
+						routes::index::index,
+						routes::test::tipi,
+						routes::test::post_feedback,
+						routes::test::get_feedback,
+						routes::statics::style])
+                    .manage::<PgPool>(pool)
+                    // .attach(Template::fairing())
+                    .attach(Template::custom( |engines| {
+                        routes::customize(&mut engines.tera);
+                    }))
+
 }

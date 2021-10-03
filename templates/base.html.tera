@@ -3,10 +3,11 @@
 	<head>
 		<meta charset="utf-8" />
 		<title>Survey-Data {{title}}</title>
+		<link href="/static/style.css?{{ style_hash }}" rel="stylesheet"/>
 	</head>
 	<body>
 		<header>
-			<a href="/">Survey-Data</a>
+			<a href="/">Survey-Data</a> {{ title }}
 		</header>
 		<main>
 		{% block content %}{% endblock content %}
