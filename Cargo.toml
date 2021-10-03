@@ -9,7 +9,7 @@ edition = "2018"
 [dependencies]
 rocket = "0.5.0-rc.1"
 tokio = { version = "1", features = ["full"] }
-sqlx = { version = "0.5", features = [ "runtime-tokio-rustls", "postgres", "uuid", "json" ] }
+sqlx = { version = "0.5", features = [ "runtime-tokio-rustls", "postgres", "uuid", "json", "time" ] }
 uuid = { version = "0.8", features = ["v4"] }
 serde_json = "1.0"
 

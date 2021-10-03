@@ -75,7 +75,8 @@ pub async fn post_feedback(cookies: &CookieJar<'_>, response: Form<Response>, po
     }
     let mut conn = pool.acquire().await.unwrap();
     sqlx::query!(
-		"INSERT INTO responses(response_id, user_id, content) VALUES ($1, $2, $3) ON CONFLICT DO NOTHING",
+		"INSERT INTO responses(response_id, user_id, submit_time, content)
+		               VALUES ($1, $2, NOW(), $3) ON CONFLICT DO NOTHING",
 		response_id, Option::<Uuid>::None, serde_json::to_value(&resp_map).unwrap()
 	).execute(&mut conn).await.unwrap();
     cookies.remove(Cookie::named("responseId"));
@@ -86,7 +87,7 @@ pub async fn get_feedback(pool: &State<PgPool>, id: &str) -> Option<Template> {
     let response_id: Uuid = id.parse().unwrap();
     let mut conn = pool.acquire().await.unwrap();
     let res = sqlx::query!(
-		"SELECT response_id, user_id, content FROM responses WHERE response_id = $1",
+		"SELECT response_id, user_id, submit_time, content FROM responses WHERE response_id = $1",
 		response_id
 	).fetch_all(&mut conn).await.unwrap();
     Some(Template::render("debug.html", &TemplateContext {
