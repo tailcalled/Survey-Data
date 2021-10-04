@@ -31,11 +31,40 @@ pub static TEST_TEMPLATE: &str = r#"
                     <div class="question-options">
                         {% for opt in content.options %}
                             <div class="question-option">
-                                <input type="radio" id="{{ element.id }}_{{ loop.index-1 }}" name="questions.{{ element.id }}" value="{{ loop.index-1 }}">
+                                <input type="radio" id="{{ element.id }}_{{ loop.index-1 }}"
+                                    name="questions.{{ element.id }}" value="{{ loop.index-1 }}">
                                 <label for="{{ element.id }}_{{ loop.index-1 }}">{{ opt }}</label>
                             </div>
                         {% endfor %}
                     </div>
+                </div>
+            {% elif element.content.McQuestionVert %}
+		        {% set content = element.content.McQuestionVert %}
+                <div class="mc-question-vert">
+                    <div class="question-text">{{ content.text }}</div>
+                    <div class="question-options">
+                        {% for opt in content.options %}
+                            <div class="question-option">
+                                <input type="radio" id="{{ element.id }}_{{ loop.index-1 }}"
+                                    name="questions.{{ element.id }}" value="{{ loop.index-1 }}">
+                                <label for="{{ element.id }}_{{ loop.index-1 }}">{{ opt }}</label>
+                            </div>
+                        {% endfor %}
+                        {% if content.other %}
+                            <div class="question-option">
+                                <input type="radio" id="{{ element.id }}_{{ content.options | length }}"
+                                    name="questions.{{ element.id }}" value="{{ content.options | length }}">
+                                <label for="{{ element.id }}_{{ content.options | length }}">Other: </label>
+                                <input type="text" name="questions.{{ element.id }}.other"/>
+                            </div>
+                        {% endif %}
+                    </div>
+                </div>
+            {% elif element.content.Paragraph %}
+                {% set content = element.content.Paragraph %}
+                <div class="paragraph-question">
+                    <h1> {{ content.header }} </h1>
+                    <p>{{ content.paragraph }}</p>
                 </div>
             {% elif element.content.CheckboxQuestion %}
 		        {% set content = element.content.CheckboxQuestion %}
@@ -45,6 +74,13 @@ pub static TEST_TEMPLATE: &str = r#"
                         {{ content.text }}
 		            </label>
 		        </div>
+		    {% elif element.content.TextAreaQuestion %}
+		        {% set content = element.content.TextAreaQuestion %}
+		        <div class="text-area-question">
+                    <h2>{{ content.header }}</h2>
+                    <p>{{ content.paragraph }}</p>
+                    <textarea name="questions.{{ element.id }}" rows=5 cols=50></textarea>
+                </div>
             {% endif %}
 		{% endfor %}
 		{% if data.page + 1 < N_PAGES %}
@@ -101,13 +137,12 @@ pub struct Response {
     questions: HashMap<String, String>
 }
 
-fn get_resp_map(test: &Test, response: &Response) -> HashMap<String, Value> {
+fn get_resp_map(test: &Test, page: usize, response: &Response) -> HashMap<String, Value> {
     let mut resp_map = HashMap::new();
-    for page in &test.pages {
-        for question in &page.elements {
-            if let Some(value) = question.convert(&response.questions) {
-                resp_map.insert(question.id.clone(), value);
-            }
+    let page = &test.pages[page];
+    for question in &page.elements {
+        if let Some(value) = question.convert(&response.questions) {
+            resp_map.insert(question.id.clone(), value);
         }
     }
     resp_map
@@ -118,7 +153,7 @@ pub async fn post_test(test: &Test, page: usize, cookies: &CookieJar<'_>, respon
     let resp_id_cookie_name = format!("responseId[{}]", test.id);
     let response_id = cookies.get(&resp_id_cookie_name).unwrap().value().parse().unwrap();
     println!("{:?}", &response.questions);
-    let resp_map = get_resp_map(test, &response);
+    let resp_map = get_resp_map(test, page-1, &response);
     database::update_response(response_id, resp_map, &mut pool.acquire().await.unwrap()).await;
     Redirect::to(uri!(test(test=test, page=page)))
 }
@@ -160,7 +195,7 @@ pub async fn post_feedback(test: &Test, cookies: &CookieJar<'_>, response: Form<
     let resp_id_cookie_name = format!("responseId[{}]", test.id);
     let response_id: Uuid = cookies.get(&resp_id_cookie_name).unwrap().value().parse().unwrap();
     println!("{:?}", &response.questions);
-    let resp_map = get_resp_map(test, &response);
+    let resp_map = get_resp_map(test, test.pages.len()-1, &response);
     database::update_response(response_id, resp_map, &mut pool.acquire().await.unwrap()).await;
     cookies.remove(Cookie::named(resp_id_cookie_name));
     Redirect::to(uri!(get_feedback(test=test, id=response_id.to_string())))

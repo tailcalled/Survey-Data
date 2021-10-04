@@ -30,6 +30,16 @@
     }
 }
 
+.mc-question-vert {
+    margin-bottom: 10px;
+    .question-text {
+        font-size: 24px;
+    }
+    .question-option {
+        font-size: 18px;
+    }
+}
+
 .cb-question {
     margin-bottom: 10px;
     input {
@@ -37,7 +47,25 @@
         height: 20px;
     }
     label {
-        font-size: 24px;
+        font-size: 18px;
+    }
+}
+
+.paragraph-question {
+    h1 {
+        font-size: 40px;
+    }
+    p {
+        font-size: 18px;
+    }
+}
+
+.text-area-question {
+    h1 {
+        font-size: 30px;
+    }
+    p {
+        font-size: 18px;
     }
 }
 

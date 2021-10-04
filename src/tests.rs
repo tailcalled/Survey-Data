@@ -50,17 +50,33 @@ pub struct Question {
 #[derive(Serialize)]
 #[serde(crate = "rocket::serde")]
 pub enum QuestionContent {
+    Paragraph { header: String, paragraph: String },
     McQuestion { text: String, options: Vec<String> },
+    McQuestionVert { text: String, options: Vec<String>, other: bool },
     CheckboxQuestion { text: String },
+    TextAreaQuestion { header: String, paragraph: String },
 }
 impl Question {
     pub fn convert(&self, resp: &HashMap<String, String>) -> Option<Value> {
         use QuestionContent::*;
         match &self.content {
+            Paragraph { .. } => None,
             McQuestion { options, .. } => {
                 if let Some(answer) = resp.get(&self.id) {
                     let n_opt: usize = answer.parse().unwrap();
                     Some(json!({"ord": n_opt, "nom": options[n_opt].clone()}))
+                }
+                else { None }
+            }
+            McQuestionVert { options, .. } => {
+                if let Some(answer) = resp.get(&self.id) {
+                    let n_opt: usize = answer.parse().unwrap();
+                    if n_opt == options.len() {
+                        Some(json!({"nom": "Other", "answer": resp.get(&format!("{:?}.other", &self.id))}))
+                    }
+                    else {
+                        Some(json!({"ord": n_opt, "nom": options[n_opt].clone()}))
+                    }
                 }
                 else { None }
             }
@@ -71,6 +87,9 @@ impl Question {
                 else {
                     Some(json!({"declined": text, "checked": false}))
                 }
+            }
+            TextAreaQuestion { .. } => {
+                Some(json!({"answer": resp[&self.id].clone()}))
             }
         }
     }
@@ -104,7 +123,6 @@ impl FeedbackItem {
 }
 
 pub fn make_tipi_test() -> Test {
-    use QuestionContent::*;
     use FeedbackItem::*;
     let likert7 = vec![
         "Disagree strongly".into(),
@@ -117,6 +135,7 @@ pub fn make_tipi_test() -> Test {
     ];
     let mut test_items = vec![];
     let mut add_item = |id: &str, label: &str| {
+        use QuestionContent::*;
         test_items.push(Question {
             id: id.into(),
             content: McQuestion {
@@ -135,58 +154,118 @@ pub fn make_tipi_test() -> Test {
     add_item("cm", "Disorganized, careless");
     add_item("nm", "Calm, emotionally stable");
     add_item("om", "Conventional, uncreative");
-    let mut test = Test {
-        id: "tipi".into(),
-        name: "Ten Item Personality Inventory".into(),
-        pages: vec![TestPage { condition: Condition::Always, elements: test_items },
-            TestPage {
-                condition: Condition::Always,
-                elements: vec![
-                    Question {
-                        id: "accurate".into(),
-                        content: CheckboxQuestion {
-                            text: "My response is accurate to the best of my ability".into(),
-                        }
-                    },
-                    Question {
-                        id: "consent".into(),
-                        content: CheckboxQuestion {
-                            text: "My response may anonymously be entered into public datasets to \
-                                   support future research".into(),
-                        }
-                    },
-                    Question {
-                        id: "repeat".into(),
-                        content: CheckboxQuestion {
-                            text: "I remember having taken this test before on this website".into(),
-                        }
-                    },
-                    Question {
-                        id: "additional".into(),
-                        content: CheckboxQuestion {
-                            text: "I would be open to answering a few extra demographic questions \
+    let mut test = {
+        use QuestionContent::*;
+        Test {
+            id: "tipi".into(),
+            name: "Ten Item Personality Inventory".into(),
+            pages: vec![
+                TestPage {
+                    condition: Condition::Always,
+                    elements: {
+                        test_items.insert(0, Question {
+                            id: "".into(),
+                            content: Paragraph {
+                                header: "TIPI Personality Test".into(),
+                                paragraph: "Here are a number of personality traits that may or may not \
+                                apply to you. Please select an option for each statement to indicate \
+                                the extent to which you agree or disagree with that statement. You \
+                                should rate the extent to which the pair of traits applies to you, \
+                                even if one characteristic applies more strongly than the other.".into()
+                            }
+                        }); test_items
+                    }
+                },
+                TestPage {
+                    condition: Condition::Always,
+                    elements: vec![
+                        Question {
+                            id: "".into(),
+                            content: Paragraph {
+                                header: "Meta".into(),
+                                paragraph: "Before you get your feedback, there's just a few extra \
+                                questions that I would like to know your answer to. These questions \
+                                don't affect your test result, but they are good to know on my end \
+                                so I know what to make of your response.".into()
+                            }
+                        },
+                        Question {
+                            id: "accurate".into(),
+                            content: CheckboxQuestion {
+                                text: "My response is accurate to the best of my ability".into(),
+                            }
+                        },
+                        Question {
+                            id: "repeat".into(),
+                            content: CheckboxQuestion {
+                                text: "I remember having taken this test before on this website".into(),
+                            }
+                        },
+                        Question {
+                            id: "additional".into(),
+                            content: CheckboxQuestion {
+                                text: "I would be open to answering a few extra demographic questions \
                                    to contribute to research (you will be presented with another \
                                    page on the test if you check this)".into(),
-                        }
-                    },
-                ]
-            },
-            TestPage {
-                condition: Condition::Question { id: "additional".into(), value: json!({ "checked": true }) },
-                elements: vec![
-                    Question {
-                        id: "demo".into(),
-                        content: CheckboxQuestion {
-                            text: "Please pretend I have a demographics question here".into(),
-                        }
-                    },
-                ],
-            },
-            TestPage {
-                condition: Condition::Always,
-                elements: vec![],
-            }],
-        feedback: vec![],
+                            }
+                        },
+                    ]
+                },
+                TestPage {
+                    condition: Condition::Question { id: "additional".into(), value: json!({ "checked": true }) },
+                    elements: vec![
+                        Question {
+                            id: "".into(),
+                            content: Paragraph {
+                                header: "Demographics".into(),
+                                paragraph: "Thank you for volunteering to answering demographic questions; \
+                                it helps me understand who my visitors are and how the norms for the \
+                                test differs between groups. Please answer the questions below.".into()
+                            }
+                        },
+                        Question {
+                            id: "gender".into(),
+                            content: McQuestionVert {
+                                text: "Gender".into(),
+                                options: vec!["Male".into(), "Female".into()],
+                                other: true
+                            },
+                        },
+                    ],
+                },
+                TestPage {
+                    condition: Condition::Always,
+                    elements: vec![
+                        Question {
+                            id: "".into(),
+                            content: Paragraph {
+                                header: "Consent & End".into(),
+                                paragraph: "Thank you for using my website to take the test. Before \
+                                continuing, you can optionally consent to allowing your previous \
+                                responses to be published in a dataset in the future. Your response \
+                                will be anonymous, except for what you've chosen to share in the survey.".into(),
+                            }
+                        },
+                        Question {
+                            id: "consent".into(),
+                            content: CheckboxQuestion {
+                                text: "My response may anonymously be entered into public datasets to \
+                                   support future research".into(),
+                            }
+                        },
+                        Question {
+                            id: "comments".into(),
+                            content: TextAreaQuestion {
+                                header: "Comments".into(),
+                                paragraph: "Do you have any comments before submitting your response? \
+                                For privacy reasons, these comments will be kept private even if you \
+                                consent to having your data shared in the above question.".into(),
+                            }
+                        },
+                    ],
+                }],
+            feedback: vec![],
+        }
     };
     let mut add_score = |label: &str, pos: &'static str, neg: &'static str, descr: &str| {
         test.feedback.push(Title { text: label.into() });
