@@ -5,6 +5,7 @@ use rocket::request::{FromParam};
 use rocket::serde::{Serialize, Serializer};
 use serde_json::{json, Value};
 use lazy_static::lazy_static;
+use crate::util::contains;
 
 #[derive(Serialize)]
 #[serde(crate = "rocket::serde")]
@@ -18,7 +19,26 @@ pub struct Test {
 #[derive(Serialize)]
 #[serde(crate = "rocket::serde")]
 pub struct TestPage {
+    pub condition: Condition,
     pub elements: Vec<Question>,
+}
+
+#[derive(Serialize)]
+#[serde(crate = "rocket::serde")]
+pub enum Condition {
+    Always,
+    Question { id: String, value: Value }
+}
+impl Condition {
+    pub fn eval(&self, resp: HashMap<String, Value>) -> bool {
+        match &self {
+            Condition::Always => true,
+            Condition::Question { id, value } => {
+                let comp = &resp[id];
+                contains(value, comp)
+            }
+        }
+    }
 }
 
 #[derive(Serialize)]
@@ -118,8 +138,9 @@ pub fn make_tipi_test() -> Test {
     let mut test = Test {
         id: "tipi".into(),
         name: "Ten Item Personality Inventory".into(),
-        pages: vec![TestPage { elements: test_items },
+        pages: vec![TestPage { condition: Condition::Always, elements: test_items },
             TestPage {
+                condition: Condition::Always,
                 elements: vec![
                     Question {
                         id: "accurate".into(),
@@ -149,6 +170,21 @@ pub fn make_tipi_test() -> Test {
                         }
                     },
                 ]
+            },
+            TestPage {
+                condition: Condition::Question { id: "additional".into(), value: json!({ "checked": true }) },
+                elements: vec![
+                    Question {
+                        id: "demo".into(),
+                        content: CheckboxQuestion {
+                            text: "Please pretend I have a demographics question here".into(),
+                        }
+                    },
+                ],
+            },
+            TestPage {
+                condition: Condition::Always,
+                elements: vec![],
             }],
         feedback: vec![],
     };

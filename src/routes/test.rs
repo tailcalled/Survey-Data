@@ -124,16 +124,35 @@ pub async fn post_test(test: &Test, page: usize, cookies: &CookieJar<'_>, respon
 }
 
 #[get("/test/<test>/<page>")]
-pub async fn test(test: &Test, page: usize, cookies: &CookieJar<'_>) -> Template {
+pub async fn test(test: &Test, page: usize, cookies: &CookieJar<'_>, pool: &State<PgPool>) -> Result<Template, Redirect> {
     let resp_id_cookie_name = format!("responseId[{}]", test.id);
-    if cookies.get(&resp_id_cookie_name).is_none() {
-        cookies.add(Cookie::new(resp_id_cookie_name, Uuid::new_v4().to_string()));
+    let response_id = if cookies.get(&resp_id_cookie_name).is_none() {
+        let gen_id = Uuid::new_v4();
+        cookies.add(Cookie::new(resp_id_cookie_name.to_string(), gen_id.to_string()));
+        gen_id
     }
-    Template::render("test.html", &TemplateContext {
-        title: &test.name,
-        style_hash: &style_hash().await,
-        data: TestContext { test: test, page: page },
-    })
+    else {
+        cookies.get(&resp_id_cookie_name).unwrap().value().parse().unwrap()
+    };
+    let mut conn = pool.acquire().await.unwrap();
+    let resp = database::get_or_create_response(response_id, &mut conn).await;
+    let show = test.pages[page].condition.eval(resp);
+    if show {
+        Ok(Template::render("test.html", &TemplateContext {
+            title: &test.name,
+            style_hash: &style_hash().await,
+            data: TestContext { test: test, page: page },
+        }))
+    }
+    else {
+        if page + 1 < test.pages.len() {
+            Err(Redirect::to(uri!(test(test=test, page=page+1))))
+        }
+        else {
+            cookies.remove(Cookie::named(resp_id_cookie_name));
+            Err(Redirect::to(uri!(get_feedback(test=test, id=response_id.to_string()))))
+        }
+    }
 }
 
 #[post("/feedback/<test>", data="<response>")]
@@ -150,13 +169,10 @@ pub async fn post_feedback(test: &Test, cookies: &CookieJar<'_>, response: Form<
 pub async fn get_feedback(test: &Test, pool: &State<PgPool>, id: &str) -> Template {
     let response_id: Uuid = id.parse().unwrap();
     let mut conn = pool.acquire().await.unwrap();
-    let res = sqlx::query!(
-		"SELECT response_id, user_id, submit_time, content FROM responses WHERE response_id = $1",
-		response_id
-	).fetch_one(&mut conn).await.unwrap();
+    let res = database::get_response(response_id, &mut conn).await;
     let mut feedback = vec![];
     for part in &test.feedback {
-        feedback.push(part.score(&res.content));
+        feedback.push(part.score(&res));
     }
     Template::render("feedback.html", &TemplateContext {
         title: "Feedback",

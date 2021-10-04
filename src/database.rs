@@ -25,6 +25,13 @@ pub async fn get_or_create_response(response_id: Uuid, conn: &mut PoolConnection
 	}
 }
 
+pub async fn get_response(response_id: Uuid, conn: &mut PoolConnection<Postgres>) -> Value {
+	sqlx::query!(
+		"SELECT response_id, user_id, submit_time, content FROM responses WHERE response_id = $1",
+		response_id
+	).fetch_one(conn).await.unwrap().content
+}
+
 pub async fn update_response(response_id: Uuid, resp_map: HashMap<String, Value>, conn: &mut PoolConnection<Postgres>) {
 	let mut prev_map = get_or_create_response(response_id, conn).await;
 	for kv in resp_map {

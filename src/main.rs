@@ -1,6 +1,7 @@
 pub mod tests;
 pub mod routes;
 pub mod database;
+pub mod util;
 
 #[macro_use] extern crate rocket;
 

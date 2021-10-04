@@ -1,4 +1,3 @@
-use std::env::current_dir;
 use rocket::serde::Serialize;
 use rocket_dyn_templates::tera::Tera;
 use tokio::fs::metadata;
