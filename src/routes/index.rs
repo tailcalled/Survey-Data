@@ -9,7 +9,7 @@ pub static TEMPLATE: &str = r#"
     <p>This is a website that hosts psychological tests, especially self-report personality tests.
     Consider taking one of the tests below to get feedback on yourself:</p>
     <ul>
-        <li> <a href="/test/tipi">Ten-Item Personality Inventory</a>: an ultra-quick personality
+        <li> <a href="/test/tipi/0">Ten-Item Personality Inventory</a>: an ultra-quick personality
         test developed to be quickly able to guesstimate someone's personality.
     </ul>
     <p>The website is still under construction, so I apologize if it is a bit rough around the

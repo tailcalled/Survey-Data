@@ -1,3 +1,4 @@
+use std::time::SystemTime;
 use rocket::serde::Serialize;
 use rocket_dyn_templates::tera::Tera;
 use tokio::fs::metadata;
@@ -22,7 +23,8 @@ pub struct DebugContext<'r> {
 }
 
 pub async fn style_hash() -> String {
-    format!("{:?}", metadata("./static/css/style.css").await.ok().unwrap().modified().ok().unwrap())
+    let mod_time = metadata("./static/css/style.css").await.ok().unwrap().modified().ok().unwrap();
+    format!("{:?}", mod_time.duration_since(SystemTime::UNIX_EPOCH).unwrap().as_nanos())
 }
 
 static DEBUG_TEMPLATE: &str = r#"
