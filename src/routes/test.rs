@@ -24,24 +24,23 @@ pub static TEST_TEMPLATE: &str = r#"
 	        "/feedback/{{data.test.id}}"
 	    {% endif %} method="post">
 		{% for element in data.test.pages[data.page].elements %}
-		    {% if element.content.McQuestion %}
+		    {% if element.content.AlignText %}
+		        {% set content = element.content.AlignText %}
+                <div class="mc-align">{{ content.text }}</div>
+		    {% elif element.content.McQuestion %}
 		        {% set content = element.content.McQuestion %}
-                <div class="mc-question">
-                    <div class="question-text">{{ content.text }}</div>
-                    <div class="question-options">
-                        {% for opt in content.options %}
-                            <div class="question-option">
-                                <input type="radio" id="{{ element.id }}_{{ loop.index-1 }}"
-                                    name="questions.{{ element.id }}" value="{{ loop.index-1 }}">
-                                <label for="{{ element.id }}_{{ loop.index-1 }}">{{ opt }}</label>
-                            </div>
-                        {% endfor %}
-                    </div>
+                <div class="mc-question-options">
+                    {% for opt in content.options %}
+                        <div class="question-option">
+                            <input type="radio" id="{{ element.id }}_{{ loop.index-1 }}"
+                                name="questions.{{ element.id }}" value="{{ loop.index-1 }}">
+                            <label for="{{ element.id }}_{{ loop.index-1 }}">{{ opt }}</label>
+                        </div>
+                    {% endfor %}
                 </div>
             {% elif element.content.McQuestionVert %}
 		        {% set content = element.content.McQuestionVert %}
                 <div class="mc-question-vert">
-                    <div class="question-text">{{ content.text }}</div>
                     <div class="question-options">
                         {% for opt in content.options %}
                             <div class="question-option">
@@ -60,11 +59,21 @@ pub static TEST_TEMPLATE: &str = r#"
                         {% endif %}
                     </div>
                 </div>
+            {% elif element.content.Header %}
+                {% set content = element.content.Header %}
+                <div class="header-question">
+                    {% if content.size == 1 %}
+                        <h1> {{ content.title }} </h1>
+                    {% elif content.size == 2 %}
+                        <h2> {{ content.title }} </h2>
+                    {% elif content.size == 3 %}
+                        <h3> {{ content.title }} </h3>
+                    {% endif %}
+                </div>
             {% elif element.content.Paragraph %}
                 {% set content = element.content.Paragraph %}
                 <div class="paragraph-question">
-                    <h1> {{ content.header }} </h1>
-                    <p>{{ content.paragraph }}</p>
+                    <p>{{ content.text }}</p>
                 </div>
             {% elif element.content.CheckboxQuestion %}
 		        {% set content = element.content.CheckboxQuestion %}
@@ -74,13 +83,13 @@ pub static TEST_TEMPLATE: &str = r#"
                         {{ content.text }}
 		            </label>
 		        </div>
-		    {% elif element.content.TextAreaQuestion %}
-		        {% set content = element.content.TextAreaQuestion %}
+		    {% elif element.content == "TextAreaQuestion" %}
+		        {% set content = element.content %}
 		        <div class="text-area-question">
-                    <h2>{{ content.header }}</h2>
-                    <p>{{ content.paragraph }}</p>
                     <textarea name="questions.{{ element.id }}" rows=5 cols=50></textarea>
                 </div>
+            {% else %}
+                {{ element.content | json_encode }}
             {% endif %}
 		{% endfor %}
 		{% if data.page + 1 < N_PAGES %}

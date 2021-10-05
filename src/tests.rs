@@ -50,17 +50,19 @@ pub struct Question {
 #[derive(Serialize)]
 #[serde(crate = "rocket::serde")]
 pub enum QuestionContent {
-    Paragraph { header: String, paragraph: String },
-    McQuestion { text: String, options: Vec<String> },
-    McQuestionVert { text: String, options: Vec<String>, other: bool },
+    Header { title: String, size: i8 },
+    Paragraph { text: String },
+    AlignText { text : String },
+    McQuestion { options: Vec<String> },
+    McQuestionVert { options: Vec<String>, other: bool },
     CheckboxQuestion { text: String },
-    TextAreaQuestion { header: String, paragraph: String },
+    TextAreaQuestion,
 }
 impl Question {
     pub fn convert(&self, resp: &HashMap<String, String>) -> Option<Value> {
         use QuestionContent::*;
         match &self.content {
-            Paragraph { .. } => None,
+            Header { .. } | Paragraph { .. } | AlignText { .. } => None,
             McQuestion { options, .. } => {
                 if let Some(answer) = resp.get(&self.id) {
                     let n_opt: usize = answer.parse().unwrap();
@@ -88,7 +90,7 @@ impl Question {
                     Some(json!({"declined": text, "checked": false}))
                 }
             }
-            TextAreaQuestion { .. } => {
+            TextAreaQuestion => {
                 Some(json!({"answer": resp[&self.id].clone()}))
             }
         }
@@ -137,12 +139,17 @@ pub fn make_tipi_test() -> Test {
     let mut add_item = |id: &str, label: &str| {
         use QuestionContent::*;
         test_items.push(Question {
+            id: "".into(),
+            content: AlignText {
+                text: label.into(),
+            }
+        });
+        test_items.push(Question {
             id: id.into(),
             content: McQuestion {
-                text: label.into(),
                 options: likert7.clone(),
             }
-        })
+        });
     };
     add_item("ep", "Extraverted, enthusiastic");
     add_item("am", "Critical, quarrelsome");
@@ -165,15 +172,22 @@ pub fn make_tipi_test() -> Test {
                     elements: {
                         test_items.insert(0, Question {
                             id: "".into(),
+                            content: Header {
+                                title: "TIPI Personality Test".into(),
+                                size: 1,
+                            }
+                        });
+                        test_items.insert(1, Question {
+                            id: "".into(),
                             content: Paragraph {
-                                header: "TIPI Personality Test".into(),
-                                paragraph: "Here are a number of personality traits that may or may not \
+                                text: "Here are a number of personality traits that may or may not \
                                 apply to you. Please select an option for each statement to indicate \
                                 the extent to which you agree or disagree with that statement. You \
                                 should rate the extent to which the pair of traits applies to you, \
                                 even if one characteristic applies more strongly than the other.".into()
                             }
-                        }); test_items
+                        });
+                        test_items
                     }
                 },
                 TestPage {
@@ -181,9 +195,15 @@ pub fn make_tipi_test() -> Test {
                     elements: vec![
                         Question {
                             id: "".into(),
+                            content: Header {
+                                title: "Meta".into(),
+                                size: 1,
+                            }
+                        },
+                        Question {
+                            id: "".into(),
                             content: Paragraph {
-                                header: "Meta".into(),
-                                paragraph: "Before you get your feedback, there's just a few extra \
+                                text: "Before you get your feedback, there's just a few extra \
                                 questions that I would like to know your answer to. These questions \
                                 don't affect your test result, but they are good to know on my end \
                                 so I know what to make of your response.".into()
@@ -216,17 +236,29 @@ pub fn make_tipi_test() -> Test {
                     elements: vec![
                         Question {
                             id: "".into(),
+                            content: Header {
+                                title: "Demographics".into(),
+                                size: 1,
+                            }
+                        },
+                        Question {
+                            id: "".into(),
                             content: Paragraph {
-                                header: "Demographics".into(),
-                                paragraph: "Thank you for volunteering to answering demographic questions; \
+                                text: "Thank you for volunteering to answering demographic questions; \
                                 it helps me understand who my visitors are and how the norms for the \
                                 test differs between groups. Please answer the questions below.".into()
                             }
                         },
                         Question {
+                            id: "".into(),
+                            content: Header {
+                                title: "Gender".into(),
+                                size: 2,
+                            }
+                        },
+                        Question {
                             id: "gender".into(),
                             content: McQuestionVert {
-                                text: "Gender".into(),
                                 options: vec!["Male".into(), "Female".into()],
                                 other: true
                             },
@@ -238,9 +270,15 @@ pub fn make_tipi_test() -> Test {
                     elements: vec![
                         Question {
                             id: "".into(),
+                            content: Header {
+                                title: "Consent & End".into(),
+                                size: 1,
+                            }
+                        },
+                        Question {
+                            id: "".into(),
                             content: Paragraph {
-                                header: "Consent & End".into(),
-                                paragraph: "Thank you for using my website to take the test. Before \
+                                text: "Thank you for using my website to take the test. Before \
                                 continuing, you can optionally consent to allowing your previous \
                                 responses to be published in a dataset in the future. Your response \
                                 will be anonymous, except for what you've chosen to share in the survey.".into(),
@@ -254,13 +292,23 @@ pub fn make_tipi_test() -> Test {
                             }
                         },
                         Question {
-                            id: "comments".into(),
-                            content: TextAreaQuestion {
-                                header: "Comments".into(),
-                                paragraph: "Do you have any comments before submitting your response? \
+                            id: "".into(),
+                            content: Header {
+                                title: "Comments".into(),
+                                size: 2,
+                            }
+                        },
+                        Question {
+                            id: "".into(),
+                            content: Paragraph {
+                                text: "Do you have any comments before submitting your response? \
                                 For privacy reasons, these comments will be kept private even if you \
                                 consent to having your data shared in the above question.".into(),
                             }
+                        },
+                        Question {
+                            id: "comments".into(),
+                            content: TextAreaQuestion
                         },
                     ],
                 }],

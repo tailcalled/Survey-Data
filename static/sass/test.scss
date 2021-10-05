@@ -1,40 +1,35 @@
-.mc-question {
-	margin-bottom: 40px;
-	.question-text {
-    	display: block;
-    	margin-left: auto;
-    	margin-right: auto;
-    	font-size: 24px;
-    	text-align: center;
-    }
-    .question-options {
-    	display: flex;
-    	flex-direction: row;
-        .question-option {
-            display: flex;
-            flex-direction: column;
-            flex-grow: 1;
-            flex-basis: 0;
-            input {
-                width: 30px;
-                height: 30px;
-                margin-left: auto;
-                margin-right: auto;
-            }
-            label {
-                padding-left: 10px;
-                padding-right: 10px;
-                text-align: center;
-            }
+.mc-align {
+    display: block;
+    margin-left: auto;
+    margin-right: auto;
+    font-size: 24px;
+    text-align: center;
+}
+.mc-question-options {
+    display: flex;
+    flex-direction: row;
+    margin-bottom: 40px;
+    .question-option {
+        display: flex;
+        flex-direction: column;
+        flex-grow: 1;
+        flex-basis: 0;
+        input {
+            width: 30px;
+            height: 30px;
+            margin-left: auto;
+            margin-right: auto;
+        }
+        label {
+            padding-left: 10px;
+            padding-right: 10px;
+            text-align: center;
         }
     }
 }
 
 .mc-question-vert {
     margin-bottom: 10px;
-    .question-text {
-        font-size: 24px;
-    }
     .question-option {
         font-size: 18px;
     }
@@ -51,22 +46,15 @@
     }
 }
 
-.paragraph-question {
+.header-question {
     h1 {
         font-size: 40px;
     }
-    p {
-        font-size: 18px;
-    }
 }
-
-.text-area-question {
-    h1 {
-        font-size: 30px;
-    }
-    p {
-        font-size: 18px;
-    }
+.paragraph-question {
+     p {
+         font-size: 18px;
+     }
 }
 
 .submit {
